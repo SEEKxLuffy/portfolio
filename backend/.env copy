@@ -1,0 +1,6 @@
+DB_USER=postgres
+DB_HOST=localhost
+DB_NAME=portfolio_db
+DB_PASSWORD=9869330677
+DB_PORT=5432
+#9869330677@

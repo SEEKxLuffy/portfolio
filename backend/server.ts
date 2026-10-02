@@ -1,3 +1,4 @@
+
 import express from "express";
 import cors from "cors";
 import { Pool } from "pg";
@@ -9,26 +10,43 @@ import fs from "fs";
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+
+// ==================================================
+// SERVER
+// ==================================================
+
+const PORT = Number(process.env.PORT) || 3000;
 
 // ==================================================
 // DATABASE
 // ==================================================
 
 const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: Number(process.env.DB_PORT),
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false,
+  },
 });
+
+// Test database connection
+pool
+  .query("SELECT NOW()")
+  .then(() => {
+    console.log("Database connected successfully");
+  })
+  .catch((error) => {
+    console.error("Database connection failed:", error);
+  });
 
 // ==================================================
 // MIDDLEWARE
 // ==================================================
 
 app.use(cors());
+
 app.use(express.json());
+
+app.use(express.urlencoded({ extended: true }));
 
 // ==================================================
 // IMAGE UPLOAD
@@ -37,7 +55,9 @@ app.use(express.json());
 const uploadDir = path.join(process.cwd(), "uploads");
 
 if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+  fs.mkdirSync(uploadDir, {
+    recursive: true,
+  });
 }
 
 const storage = multer.diskStorage({
@@ -47,6 +67,7 @@ const storage = multer.diskStorage({
 
   filename: (_req, file, cb) => {
     const extension = path.extname(file.originalname);
+
     const filename = `profile-${Date.now()}${extension}`;
 
     cb(null, filename);
@@ -80,10 +101,14 @@ const upload = multer({
   },
 });
 
-app.use("/uploads", express.static(uploadDir));
+// Serve uploaded images
+app.use(
+  "/uploads",
+  express.static(uploadDir)
+);
 
 // ==================================================
-// TEST
+// TEST ROUTE
 // ==================================================
 
 app.get("/", (_req, res) => {
@@ -124,7 +149,8 @@ app.post("/api/projects", async (req, res) => {
 
     if (!title || !description) {
       return res.status(400).json({
-        message: "Title and description are required",
+        message:
+          "Title and description are required",
       });
     }
 
@@ -137,13 +163,15 @@ app.post("/api/projects", async (req, res) => {
       [
         title,
         description,
-        tech,
-        github,
-        live,
+        tech || "",
+        github || "",
+        live || "",
       ]
     );
 
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(
+      result.rows[0]
+    );
   } catch (error) {
     console.error(error);
 
@@ -153,136 +181,70 @@ app.post("/api/projects", async (req, res) => {
   }
 });
 
-app.put(
-  "/api/profile/:id",
-  upload.single("image"),
-  async (req, res) => {
-    let newImagePath: string | null = null;
+app.put("/api/projects/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
 
-    try {
-      const { id } = req.params;
+    const {
+      title,
+      description,
+      tech,
+      github,
+      live,
+    } = req.body;
 
-      const {
-        name,
-        job_title,
-        bio,
-        email,
-        location,
-        github,
-        linkedin,
-      } = req.body;
-
-      if (!name) {
-        return res.status(400).json({
-          message: "Name is required",
-        });
-      }
-
-      // Find existing profile
-      const currentProfile = await pool.query(
-        "SELECT * FROM profile WHERE id = $1",
-        [id]
-      );
-
-      if (currentProfile.rows.length === 0) {
-        return res.status(404).json({
-          message: "Profile not found",
-        });
-      }
-
-      const oldImage =
-        currentProfile.rows[0].image;
-
-      // Keep old image if no new image was selected
-      let image = oldImage;
-
-      // If a new image was uploaded
-      if (req.file) {
-        image = `/uploads/${req.file.filename}`;
-
-        newImagePath = path.join(
-          uploadDir,
-          req.file.filename
-        );
-      }
-
-      // Update database
-      const result = await pool.query(
-        `UPDATE profile
-         SET
-           name = $1,
-           job_title = $2,
-           bio = $3,
-           email = $4,
-           location = $5,
-           github = $6,
-           linkedin = $7,
-           image = $8
-         WHERE id = $9
-         RETURNING *`,
-        [
-          name,
-          job_title || "",
-          bio || "",
-          email || "",
-          location || "",
-          github || "",
-          linkedin || "",
-          image,
-          id,
-        ]
-      );
-
-      // Delete old image only AFTER database update succeeds
-      if (
-        req.file &&
-        oldImage
-      ) {
-        const oldImagePath = path.join(
-          process.cwd(),
-          oldImage
-        );
-
-        if (
-          fs.existsSync(oldImagePath) &&
-          oldImagePath !== newImagePath
-        ) {
-          fs.unlinkSync(oldImagePath);
-        }
-      }
-
-      res.json(result.rows[0]);
-    } catch (error) {
-      console.error(
-        "PROFILE UPDATE ERROR:",
-        error
-      );
-
-      // Remove newly uploaded file
-      // if database update failed
-      if (
-        newImagePath &&
-        fs.existsSync(newImagePath)
-      ) {
-        fs.unlinkSync(newImagePath);
-      }
-
-      res.status(500).json({
+    if (!title || !description) {
+      return res.status(400).json({
         message:
-          error instanceof Error
-            ? error.message
-            : "Failed to update profile",
+          "Title and description are required",
       });
     }
+
+    const result = await pool.query(
+      `UPDATE projects
+       SET
+         title = $1,
+         description = $2,
+         tech = $3,
+         github = $4,
+         live = $5,
+         updated_at = CURRENT_TIMESTAMP
+       WHERE id = $6
+       RETURNING *`,
+      [
+        title,
+        description,
+        tech || "",
+        github || "",
+        live || "",
+        id,
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: "Project not found",
+      });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      message: "Failed to update project",
+    });
   }
-);
+});
 
 app.delete("/api/projects/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
     const result = await pool.query(
-      "DELETE FROM projects WHERE id = $1 RETURNING *",
+      `DELETE FROM projects
+       WHERE id = $1
+       RETURNING *`,
       [id]
     );
 
@@ -293,7 +255,8 @@ app.delete("/api/projects/:id", async (req, res) => {
     }
 
     res.json({
-      message: "Project deleted successfully",
+      message:
+        "Project deleted successfully",
       project: result.rows[0],
     });
   } catch (error) {
@@ -312,7 +275,10 @@ app.delete("/api/projects/:id", async (req, res) => {
 app.get("/api/profile", async (_req, res) => {
   try {
     const result = await pool.query(
-      "SELECT * FROM profile ORDER BY id DESC LIMIT 1"
+      `SELECT *
+       FROM profile
+       ORDER BY id DESC
+       LIMIT 1`
     );
 
     if (result.rows.length === 0) {
@@ -350,13 +316,17 @@ app.post(
         });
       }
 
-      const existingProfile = await pool.query(
-        "SELECT id FROM profile LIMIT 1"
-      );
+      const existingProfile =
+        await pool.query(
+          "SELECT id FROM profile LIMIT 1"
+        );
 
-      if (existingProfile.rows.length > 0) {
+      if (
+        existingProfile.rows.length > 0
+      ) {
         return res.status(409).json({
-          message: "Profile already exists",
+          message:
+            "Profile already exists",
         });
       }
 
@@ -391,23 +361,29 @@ app.post(
         ]
       );
 
-      res.status(201).json(result.rows[0]);
+      res.status(201).json(
+        result.rows[0]
+      );
     } catch (error) {
       console.error(error);
 
       if (req.file) {
-        const uploadedPath = path.join(
-          uploadDir,
-          req.file.filename
-        );
+        const uploadedPath =
+          path.join(
+            uploadDir,
+            req.file.filename
+          );
 
-        if (fs.existsSync(uploadedPath)) {
+        if (
+          fs.existsSync(uploadedPath)
+        ) {
           fs.unlinkSync(uploadedPath);
         }
       }
 
       res.status(500).json({
-        message: "Failed to create profile",
+        message:
+          "Failed to create profile",
       });
     }
   }
@@ -417,6 +393,9 @@ app.put(
   "/api/profile/:id",
   upload.single("image"),
   async (req, res) => {
+    let newImagePath: string | null =
+      null;
+
     try {
       const { id } = req.params;
 
@@ -436,20 +415,29 @@ app.put(
         });
       }
 
-      const currentProfile = await pool.query(
-        "SELECT * FROM profile WHERE id = $1",
-        [id]
-      );
+      // Find existing profile
+      const currentProfile =
+        await pool.query(
+          "SELECT * FROM profile WHERE id = $1",
+          [id]
+        );
 
-      if (currentProfile.rows.length === 0) {
+      if (
+        currentProfile.rows.length === 0
+      ) {
         if (req.file) {
-          const uploadedPath = path.join(
-            uploadDir,
-            req.file.filename
-          );
+          const uploadedPath =
+            path.join(
+              uploadDir,
+              req.file.filename
+            );
 
-          if (fs.existsSync(uploadedPath)) {
-            fs.unlinkSync(uploadedPath);
+          if (
+            fs.existsSync(uploadedPath)
+          ) {
+            fs.unlinkSync(
+              uploadedPath
+            );
           }
         }
 
@@ -458,23 +446,24 @@ app.put(
         });
       }
 
-      let image = currentProfile.rows[0].image;
+      const oldImage =
+        currentProfile.rows[0].image;
 
+      // Keep existing image
+      let image = oldImage;
+
+      // If a new image was uploaded
       if (req.file) {
-        image = `/uploads/${req.file.filename}`;
+        image =
+          `/uploads/${req.file.filename}`;
 
-        if (currentProfile.rows[0].image) {
-          const oldImagePath = path.join(
-            process.cwd(),
-            currentProfile.rows[0].image
-          );
-
-          if (fs.existsSync(oldImagePath)) {
-            fs.unlinkSync(oldImagePath);
-          }
-        }
+        newImagePath = path.join(
+          uploadDir,
+          req.file.filename
+        );
       }
 
+      // Update database
       const result = await pool.query(
         `UPDATE profile
          SET
@@ -502,12 +491,51 @@ app.put(
         ]
       );
 
+      // Delete old image only
+      // after database update succeeds
+      if (
+        req.file &&
+        oldImage
+      ) {
+        const oldImagePath =
+          path.join(
+            process.cwd(),
+            oldImage
+          );
+
+        if (
+          fs.existsSync(oldImagePath) &&
+          oldImagePath !== newImagePath
+        ) {
+          fs.unlinkSync(
+            oldImagePath
+          );
+        }
+      }
+
       res.json(result.rows[0]);
     } catch (error) {
-      console.error(error);
+      console.error(
+        "PROFILE UPDATE ERROR:",
+        error
+      );
+
+      // Delete newly uploaded image
+      // if database update failed
+      if (
+        newImagePath &&
+        fs.existsSync(newImagePath)
+      ) {
+        fs.unlinkSync(
+          newImagePath
+        );
+      }
 
       res.status(500).json({
-        message: "Failed to update profile",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to update profile",
       });
     }
   }
@@ -530,35 +558,45 @@ app.delete(
         });
       }
 
-      const image = result.rows[0].image;
+      const image =
+        result.rows[0].image;
 
       if (image) {
-        const imagePath = path.join(
-          process.cwd(),
-          image
-        );
+        const imagePath =
+          path.join(
+            process.cwd(),
+            image
+          );
 
-        if (fs.existsSync(imagePath)) {
-          fs.unlinkSync(imagePath);
+        if (
+          fs.existsSync(imagePath)
+        ) {
+          fs.unlinkSync(
+            imagePath
+          );
         }
       }
 
-      const updated = await pool.query(
-        `UPDATE profile
-         SET
-           image = NULL,
-           updated_at = CURRENT_TIMESTAMP
-         WHERE id = $1
-         RETURNING *`,
-        [id]
-      );
+      const updated =
+        await pool.query(
+          `UPDATE profile
+           SET
+             image = NULL,
+             updated_at = CURRENT_TIMESTAMP
+           WHERE id = $1
+           RETURNING *`,
+          [id]
+        );
 
-      res.json(updated.rows[0]);
+      res.json(
+        updated.rows[0]
+      );
     } catch (error) {
       console.error(error);
 
       res.status(500).json({
-        message: "Failed to delete profile image",
+        message:
+          "Failed to delete profile image",
       });
     }
   }
@@ -594,7 +632,8 @@ app.post("/api/skills", async (req, res) => {
 
     if (!name) {
       return res.status(400).json({
-        message: "Skill name is required",
+        message:
+          "Skill name is required",
       });
     }
 
@@ -611,7 +650,9 @@ app.post("/api/skills", async (req, res) => {
       ]
     );
 
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(
+      result.rows[0]
+    );
   } catch (error) {
     console.error(error);
 
@@ -633,7 +674,8 @@ app.put("/api/skills/:id", async (req, res) => {
 
     if (!name) {
       return res.status(400).json({
-        message: "Skill name is required",
+        message:
+          "Skill name is required",
       });
     }
 
@@ -670,588 +712,712 @@ app.put("/api/skills/:id", async (req, res) => {
   }
 });
 
-app.delete("/api/skills/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
+app.delete(
+  "/api/skills/:id",
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    const result = await pool.query(
-      "DELETE FROM skills WHERE id = $1 RETURNING *",
-      [id]
-    );
+      const result = await pool.query(
+        `DELETE FROM skills
+         WHERE id = $1
+         RETURNING *`,
+        [id]
+      );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "Skill not found",
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          message: "Skill not found",
+        });
+      }
+
+      res.json({
+        message:
+          "Skill deleted successfully",
+        skill: result.rows[0],
+      });
+    } catch (error) {
+      console.error(error);
+
+      res.status(500).json({
+        message:
+          "Failed to delete skill",
       });
     }
-
-    res.json({
-      message: "Skill deleted successfully",
-      skill: result.rows[0],
-    });
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Failed to delete skill",
-    });
   }
-});
+);
 
 // ==================================================
 // EDUCATION
 // ==================================================
 
-app.get("/api/education", async (_req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT * FROM education ORDER BY id DESC"
-    );
+app.get(
+  "/api/education",
+  async (_req, res) => {
+    try {
+      const result = await pool.query(
+        "SELECT * FROM education ORDER BY id DESC"
+      );
 
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
+      res.json(result.rows);
+    } catch (error) {
+      console.error(error);
 
-    res.status(500).json({
-      message: "Failed to fetch education",
-    });
-  }
-});
-
-app.post("/api/education", async (req, res) => {
-  try {
-    const {
-      degree,
-      institution,
-      start_year,
-      end_year,
-      description,
-    } = req.body;
-
-    if (!degree || !institution) {
-      return res.status(400).json({
-        message: "Degree and institution are required",
+      res.status(500).json({
+        message:
+          "Failed to fetch education",
       });
     }
+  }
+);
 
-    const result = await pool.query(
-      `INSERT INTO education
-      (
+app.post(
+  "/api/education",
+  async (req, res) => {
+    try {
+      const {
         degree,
         institution,
         start_year,
         end_year,
-        description
-      )
-      VALUES
-      ($1, $2, $3, $4, $5)
-      RETURNING *`,
-      [
+        description,
+      } = req.body;
+
+      if (!degree || !institution) {
+        return res.status(400).json({
+          message:
+            "Degree and institution are required",
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO education
+        (
+          degree,
+          institution,
+          start_year,
+          end_year,
+          description
+        )
+        VALUES
+        ($1, $2, $3, $4, $5)
+        RETURNING *`,
+        [
+          degree,
+          institution,
+          start_year || null,
+          end_year || null,
+          description || "",
+        ]
+      );
+
+      res.status(201).json(
+        result.rows[0]
+      );
+    } catch (error) {
+      console.error(error);
+
+      res.status(500).json({
+        message:
+          "Failed to create education",
+      });
+    }
+  }
+);
+
+app.put(
+  "/api/education/:id",
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const {
         degree,
         institution,
-        start_year || null,
-        end_year || null,
-        description || "",
-      ]
-    );
+        start_year,
+        end_year,
+        description,
+      } = req.body;
 
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
+      if (!degree || !institution) {
+        return res.status(400).json({
+          message:
+            "Degree and institution are required",
+        });
+      }
 
-    res.status(500).json({
-      message: "Failed to create education",
-    });
-  }
-});
+      const result = await pool.query(
+        `UPDATE education
+         SET
+           degree = $1,
+           institution = $2,
+           start_year = $3,
+           end_year = $4,
+           description = $5,
+           updated_at = CURRENT_TIMESTAMP
+         WHERE id = $6
+         RETURNING *`,
+        [
+          degree,
+          institution,
+          start_year || null,
+          end_year || null,
+          description || "",
+          id,
+        ]
+      );
 
-app.put("/api/education/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          message:
+            "Education not found",
+        });
+      }
 
-    const {
-      degree,
-      institution,
-      start_year,
-      end_year,
-      description,
-    } = req.body;
+      res.json(
+        result.rows[0]
+      );
+    } catch (error) {
+      console.error(error);
 
-    if (!degree || !institution) {
-      return res.status(400).json({
-        message: "Degree and institution are required",
+      res.status(500).json({
+        message:
+          "Failed to update education",
       });
     }
+  }
+);
 
-    const result = await pool.query(
-      `UPDATE education
-       SET
-         degree = $1,
-         institution = $2,
-         start_year = $3,
-         end_year = $4,
-         description = $5,
-         updated_at = CURRENT_TIMESTAMP
-       WHERE id = $6
-       RETURNING *`,
-      [
-        degree,
-        institution,
-        start_year || null,
-        end_year || null,
-        description || "",
-        id,
-      ]
-    );
+app.delete(
+  "/api/education/:id",
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "Education not found",
+      const result = await pool.query(
+        `DELETE FROM education
+         WHERE id = $1
+         RETURNING *`,
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          message:
+            "Education not found",
+        });
+      }
+
+      res.json({
+        message:
+          "Education deleted successfully",
+        education:
+          result.rows[0],
+      });
+    } catch (error) {
+      console.error(error);
+
+      res.status(500).json({
+        message:
+          "Failed to delete education",
       });
     }
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Failed to update education",
-    });
   }
-});
-
-app.delete("/api/education/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const result = await pool.query(
-      "DELETE FROM education WHERE id = $1 RETURNING *",
-      [id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "Education not found",
-      });
-    }
-
-    res.json({
-      message: "Education deleted successfully",
-      education: result.rows[0],
-    });
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Failed to delete education",
-    });
-  }
-});
+);
 
 // ==================================================
 // EXPERIENCE
 // ==================================================
 
-app.get("/api/experience", async (_req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT * FROM experience ORDER BY id DESC"
-    );
+app.get(
+  "/api/experience",
+  async (_req, res) => {
+    try {
+      const result = await pool.query(
+        "SELECT * FROM experience ORDER BY id DESC"
+      );
 
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
+      res.json(result.rows);
+    } catch (error) {
+      console.error(error);
 
-    res.status(500).json({
-      message: "Failed to fetch experience",
-    });
-  }
-});
-
-app.post("/api/experience", async (req, res) => {
-  try {
-    const {
-      job_title,
-      company,
-      start_date,
-      end_date,
-      description,
-    } = req.body;
-
-    if (!job_title || !company) {
-      return res.status(400).json({
-        message: "Job title and company are required",
+      res.status(500).json({
+        message:
+          "Failed to fetch experience",
       });
     }
+  }
+);
 
-    const result = await pool.query(
-      `INSERT INTO experience
-      (
+app.post(
+  "/api/experience",
+  async (req, res) => {
+    try {
+      const {
         job_title,
         company,
         start_date,
         end_date,
-        description
-      )
-      VALUES
-      ($1, $2, $3, $4, $5)
-      RETURNING *`,
-      [
+        description,
+      } = req.body;
+
+      if (!job_title || !company) {
+        return res.status(400).json({
+          message:
+            "Job title and company are required",
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO experience
+        (
+          job_title,
+          company,
+          start_date,
+          end_date,
+          description
+        )
+        VALUES
+        ($1, $2, $3, $4, $5)
+        RETURNING *`,
+        [
+          job_title,
+          company,
+          start_date || null,
+          end_date || null,
+          description || "",
+        ]
+      );
+
+      res.status(201).json(
+        result.rows[0]
+      );
+    } catch (error) {
+      console.error(error);
+
+      res.status(500).json({
+        message:
+          "Failed to create experience",
+      });
+    }
+  }
+);
+
+app.put(
+  "/api/experience/:id",
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const {
         job_title,
         company,
-        start_date || null,
-        end_date || null,
-        description || "",
-      ]
-    );
+        start_date,
+        end_date,
+        description,
+      } = req.body;
 
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
+      if (!job_title || !company) {
+        return res.status(400).json({
+          message:
+            "Job title and company are required",
+        });
+      }
 
-    res.status(500).json({
-      message: "Failed to create experience",
-    });
-  }
-});
+      const result = await pool.query(
+        `UPDATE experience
+         SET
+           job_title = $1,
+           company = $2,
+           start_date = $3,
+           end_date = $4,
+           description = $5,
+           updated_at = CURRENT_TIMESTAMP
+         WHERE id = $6
+         RETURNING *`,
+        [
+          job_title,
+          company,
+          start_date || null,
+          end_date || null,
+          description || "",
+          id,
+        ]
+      );
 
-app.put("/api/experience/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          message:
+            "Experience not found",
+        });
+      }
 
-    const {
-      job_title,
-      company,
-      start_date,
-      end_date,
-      description,
-    } = req.body;
+      res.json(
+        result.rows[0]
+      );
+    } catch (error) {
+      console.error(error);
 
-    if (!job_title || !company) {
-      return res.status(400).json({
-        message: "Job title and company are required",
+      res.status(500).json({
+        message:
+          "Failed to update experience",
       });
     }
+  }
+);
 
-    const result = await pool.query(
-      `UPDATE experience
-       SET
-         job_title = $1,
-         company = $2,
-         start_date = $3,
-         end_date = $4,
-         description = $5,
-         updated_at = CURRENT_TIMESTAMP
-       WHERE id = $6
-       RETURNING *`,
-      [
-        job_title,
-        company,
-        start_date || null,
-        end_date || null,
-        description || "",
-        id,
-      ]
-    );
+app.delete(
+  "/api/experience/:id",
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "Experience not found",
+      const result = await pool.query(
+        `DELETE FROM experience
+         WHERE id = $1
+         RETURNING *`,
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          message:
+            "Experience not found",
+        });
+      }
+
+      res.json({
+        message:
+          "Experience deleted successfully",
+        experience:
+          result.rows[0],
+      });
+    } catch (error) {
+      console.error(error);
+
+      res.status(500).json({
+        message:
+          "Failed to delete experience",
       });
     }
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Failed to update experience",
-    });
   }
-});
-
-app.delete("/api/experience/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const result = await pool.query(
-      "DELETE FROM experience WHERE id = $1 RETURNING *",
-      [id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "Experience not found",
-      });
-    }
-
-    res.json({
-      message: "Experience deleted successfully",
-      experience: result.rows[0],
-    });
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Failed to delete experience",
-    });
-  }
-});
+);
 
 // ==================================================
 // INTERESTS
 // ==================================================
 
-app.get("/api/interests", async (_req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT * FROM interests ORDER BY id DESC"
-    );
+app.get(
+  "/api/interests",
+  async (_req, res) => {
+    try {
+      const result = await pool.query(
+        "SELECT * FROM interests ORDER BY id DESC"
+      );
 
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
+      res.json(result.rows);
+    } catch (error) {
+      console.error(error);
 
-    res.status(500).json({
-      message: "Failed to fetch interests",
-    });
-  }
-});
-
-app.post("/api/interests", async (req, res) => {
-  try {
-    const {
-      name,
-      description,
-    } = req.body;
-
-    if (!name) {
-      return res.status(400).json({
-        message: "Interest name is required",
+      res.status(500).json({
+        message:
+          "Failed to fetch interests",
       });
     }
+  }
+);
 
-    const result = await pool.query(
-      `INSERT INTO interests
-        (name, description)
-       VALUES
-        ($1, $2)
-       RETURNING *`,
-      [
+app.post(
+  "/api/interests",
+  async (req, res) => {
+    try {
+      const {
         name,
-        description || "",
-      ]
-    );
+        description,
+      } = req.body;
 
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
+      if (!name) {
+        return res.status(400).json({
+          message:
+            "Interest name is required",
+        });
+      }
 
-    res.status(500).json({
-      message: "Failed to create interest",
-    });
-  }
-});
+      const result = await pool.query(
+        `INSERT INTO interests
+          (name, description)
+         VALUES
+          ($1, $2)
+         RETURNING *`,
+        [
+          name,
+          description || "",
+        ]
+      );
 
-app.put("/api/interests/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
+      res.status(201).json(
+        result.rows[0]
+      );
+    } catch (error) {
+      console.error(error);
 
-    const {
-      name,
-      description,
-    } = req.body;
-
-    if (!name) {
-      return res.status(400).json({
-        message: "Interest name is required",
+      res.status(500).json({
+        message:
+          "Failed to create interest",
       });
     }
+  }
+);
 
-    const result = await pool.query(
-      `UPDATE interests
-       SET
-         name = $1,
-         description = $2,
-         updated_at = CURRENT_TIMESTAMP
-       WHERE id = $3
-       RETURNING *`,
-      [
+app.put(
+  "/api/interests/:id",
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const {
         name,
-        description || "",
-        id,
-      ]
-    );
+        description,
+      } = req.body;
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "Interest not found",
+      if (!name) {
+        return res.status(400).json({
+          message:
+            "Interest name is required",
+        });
+      }
+
+      const result = await pool.query(
+        `UPDATE interests
+         SET
+           name = $1,
+           description = $2,
+           updated_at = CURRENT_TIMESTAMP
+         WHERE id = $3
+         RETURNING *`,
+        [
+          name,
+          description || "",
+          id,
+        ]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          message:
+            "Interest not found",
+        });
+      }
+
+      res.json(
+        result.rows[0]
+      );
+    } catch (error) {
+      console.error(error);
+
+      res.status(500).json({
+        message:
+          "Failed to update interest",
       });
     }
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Failed to update interest",
-    });
   }
-});
+);
 
-app.delete("/api/interests/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
+app.delete(
+  "/api/interests/:id",
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    const result = await pool.query(
-      "DELETE FROM interests WHERE id = $1 RETURNING *",
-      [id]
-    );
+      const result = await pool.query(
+        `DELETE FROM interests
+         WHERE id = $1
+         RETURNING *`,
+        [id]
+      );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "Interest not found",
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          message:
+            "Interest not found",
+        });
+      }
+
+      res.json({
+        message:
+          "Interest deleted successfully",
+        interest:
+          result.rows[0],
+      });
+    } catch (error) {
+      console.error(error);
+
+      res.status(500).json({
+        message:
+          "Failed to delete interest",
       });
     }
-
-    res.json({
-      message: "Interest deleted successfully",
-      interest: result.rows[0],
-    });
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Failed to delete interest",
-    });
   }
-});
+);
 
 // ==================================================
 // MESSAGES
 // ==================================================
 
-app.get("/api/messages", async (_req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT * FROM messages ORDER BY id DESC"
-    );
+app.get(
+  "/api/messages",
+  async (_req, res) => {
+    try {
+      const result = await pool.query(
+        "SELECT * FROM messages ORDER BY id DESC"
+      );
 
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
+      res.json(result.rows);
+    } catch (error) {
+      console.error(error);
 
-    res.status(500).json({
-      message: "Failed to fetch messages",
-    });
-  }
-});
-
-app.post("/api/messages", async (req, res) => {
-  try {
-    const {
-      name,
-      email,
-      subject,
-      message,
-    } = req.body;
-
-    if (!name || !email || !message) {
-      return res.status(400).json({
+      res.status(500).json({
         message:
-          "Name, email and message are required",
+          "Failed to fetch messages",
       });
     }
+  }
+);
 
-    const result = await pool.query(
-      `INSERT INTO messages
-      (
+app.post(
+  "/api/messages",
+  async (req, res) => {
+    try {
+      const {
         name,
         email,
         subject,
-        message
-      )
-      VALUES
-      ($1, $2, $3, $4)
-      RETURNING *`,
-      [
-        name,
-        email,
-        subject || "",
         message,
-      ]
-    );
+      } = req.body;
 
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
+      if (
+        !name ||
+        !email ||
+        !message
+      ) {
+        return res.status(400).json({
+          message:
+            "Name, email and message are required",
+        });
+      }
 
-    res.status(500).json({
-      message: "Failed to create message",
-    });
+      const result = await pool.query(
+        `INSERT INTO messages
+        (
+          name,
+          email,
+          subject,
+          message
+        )
+        VALUES
+        ($1, $2, $3, $4)
+        RETURNING *`,
+        [
+          name,
+          email,
+          subject || "",
+          message,
+        ]
+      );
+
+      res.status(201).json(
+        result.rows[0]
+      );
+    } catch (error) {
+      console.error(error);
+
+      res.status(500).json({
+        message:
+          "Failed to create message",
+      });
+    }
   }
-});
+);
 
-app.put("/api/messages/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { is_read } = req.body;
+app.put(
+  "/api/messages/:id",
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    const result = await pool.query(
-      `UPDATE messages
-       SET
-         is_read = $1
-       WHERE id = $2
-       RETURNING *`,
-      [
+      const {
         is_read,
-        id,
-      ]
-    );
+      } = req.body;
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "Message not found",
+      const result = await pool.query(
+        `UPDATE messages
+         SET
+           is_read = $1
+         WHERE id = $2
+         RETURNING *`,
+        [
+          is_read,
+          id,
+        ]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          message:
+            "Message not found",
+        });
+      }
+
+      res.json(
+        result.rows[0]
+      );
+    } catch (error) {
+      console.error(error);
+
+      res.status(500).json({
+        message:
+          "Failed to update message",
       });
     }
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Failed to update message",
-    });
   }
-});
+);
 
-app.delete("/api/messages/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
+app.delete(
+  "/api/messages/:id",
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    const result = await pool.query(
-      "DELETE FROM messages WHERE id = $1 RETURNING *",
-      [id]
-    );
+      const result = await pool.query(
+        `DELETE FROM messages
+         WHERE id = $1
+         RETURNING *`,
+        [id]
+      );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "Message not found",
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          message:
+            "Message not found",
+        });
+      }
+
+      res.json({
+        message:
+          "Message deleted successfully",
+        data:
+          result.rows[0],
+      });
+    } catch (error) {
+      console.error(error);
+
+      res.status(500).json({
+        message:
+          "Failed to delete message",
       });
     }
-
-    res.json({
-      message: "Message deleted successfully",
-      data: result.rows[0],
-    });
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Failed to delete message",
-    });
   }
-});
+);
 
 // ==================================================
 // ERROR HANDLER
@@ -1266,7 +1432,10 @@ app.use(
   ) => {
     console.error(error);
 
-    if (error instanceof multer.MulterError) {
+    if (
+      error instanceof
+      multer.MulterError
+    ) {
       return res.status(400).json({
         message: error.message,
       });
@@ -1282,7 +1451,8 @@ app.use(
     }
 
     res.status(500).json({
-      message: "Something went wrong",
+      message:
+        "Something went wrong",
     });
   }
 );
@@ -1291,8 +1461,12 @@ app.use(
 // START SERVER
 // ==================================================
 
-app.listen(PORT, () => {
-  console.log(
-    `Backend running at http://localhost:${PORT}`
-  );
-});
+app.listen(
+  PORT,
+  "0.0.0.0",
+  () => {
+    console.log(
+      `Backend running on port ${PORT}`
+    );
+  }
+);
