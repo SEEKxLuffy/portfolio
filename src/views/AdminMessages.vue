@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 
 const router = useRouter();
@@ -10,19 +10,26 @@ interface Message {
   email: string;
   subject: string;
   message: string;
+  is_read: boolean;
   created_at: string;
 }
 
 const messages = ref<Message[]>([]);
-
 const loading = ref(true);
+const errorMessage = ref("");
 
+const unreadCount = computed(() => {
+  return messages.value.filter((message) => !message.is_read).length;
+});
 
 // ==============================
 // LOAD MESSAGES
 // ==============================
 
 const loadMessages = async () => {
+  loading.value = true;
+  errorMessage.value = "";
+
   try {
     const response = await fetch(
       "http://localhost:3000/api/messages"
@@ -32,17 +39,56 @@ const loadMessages = async () => {
       throw new Error("Failed to load messages");
     }
 
-    messages.value = await response.json();
+    const data = await response.json();
 
+    console.log("Messages received from backend:", data);
+
+    messages.value = data;
   } catch (error) {
-    console.error(error);
-    alert("Failed to load messages.");
+    console.error("Error loading messages:", error);
 
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : "Failed to load messages.";
   } finally {
     loading.value = false;
   }
 };
 
+// ==============================
+// MARK AS READ
+// ==============================
+
+const markAsRead = async (message: Message) => {
+  if (message.is_read) {
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `http://localhost:3000/api/messages/${message.id}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          is_read: true,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to mark message as read");
+    }
+
+    message.is_read = true;
+  } catch (error) {
+    console.error("Error marking message as read:", error);
+    alert("Failed to mark message as read.");
+  }
+};
 
 // ==============================
 // DELETE MESSAGE
@@ -73,10 +119,7 @@ const deleteMessage = async (id: number) => {
       );
     }
 
-    alert("Message deleted successfully!");
-
     await loadMessages();
-
   } catch (error) {
     console.error(error);
 
@@ -88,6 +131,17 @@ const deleteMessage = async (id: number) => {
   }
 };
 
+// ==============================
+// FORMAT DATE
+// ==============================
+
+const formatDate = (date: string) => {
+  if (!date) {
+    return "";
+  }
+
+  return new Date(date).toLocaleString();
+};
 
 // ==============================
 // BACK
@@ -96,7 +150,6 @@ const deleteMessage = async (id: number) => {
 const goBack = () => {
   router.push("/admin");
 };
-
 
 // ==============================
 // INITIAL LOAD
@@ -107,57 +160,149 @@ onMounted(() => {
 });
 </script>
 
-
 <template>
-  <div class="min-h-screen bg-gray-950 text-white">
+  <div class="min-h-screen bg-slate-950 text-white">
 
-    <header class="border-b border-gray-800">
-
-      <div class="max-w-5xl mx-auto px-6 py-5">
+    <!-- HEADER -->
+    <header
+      class="border-b border-white/[0.08] bg-slate-950/90"
+    >
+      <div class="mx-auto max-w-6xl px-6 py-6">
 
         <button
           @click="goBack"
-          class="text-gray-400 hover:text-white transition mb-5"
+          class="mb-6 inline-flex items-center gap-2 text-sm text-slate-400 transition hover:text-white"
         >
           ← Back to Dashboard
         </button>
 
-        <h1 class="text-3xl font-bold">
-          Messages
-        </h1>
+        <div
+          class="flex flex-col justify-between gap-5 sm:flex-row sm:items-end"
+        >
+          <div>
+            <p
+              class="text-sm font-semibold uppercase tracking-[0.25em] text-blue-400"
+            >
+              Admin
+            </p>
 
-        <p class="text-gray-400 mt-2">
-          View messages submitted through your portfolio.
-        </p>
+            <h1
+              class="mt-2 text-3xl font-bold tracking-tight sm:text-4xl"
+            >
+              Messages
+            </h1>
+
+            <p class="mt-2 text-slate-400">
+              Messages submitted through your portfolio.
+            </p>
+          </div>
+
+          <button
+            @click="loadMessages"
+            class="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:border-blue-500/30 hover:bg-blue-500/10 hover:text-white"
+          >
+            ↻ Refresh
+          </button>
+        </div>
 
       </div>
-
     </header>
 
 
-    <main class="max-w-5xl mx-auto px-6 py-10">
+    <!-- MAIN -->
+    <main class="mx-auto max-w-6xl px-6 py-10">
 
-      <h2 class="text-xl font-semibold mb-5">
-        Received Messages
-      </h2>
+      <!-- STATS -->
+      <div
+        class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2"
+      >
+
+        <div
+          class="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5"
+        >
+          <p
+            class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500"
+          >
+            Total Messages
+          </p>
+
+          <p class="mt-2 text-3xl font-bold">
+            {{ messages.length }}
+          </p>
+        </div>
+
+        <div
+          class="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5"
+        >
+          <p
+            class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500"
+          >
+            Unread
+          </p>
+
+          <p class="mt-2 text-3xl font-bold text-blue-400">
+            {{ unreadCount }}
+          </p>
+        </div>
+
+      </div>
 
 
+      <!-- ERROR -->
+      <div
+        v-if="errorMessage"
+        class="mb-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-5 text-red-300"
+      >
+        <p class="font-medium">
+          {{ errorMessage }}
+        </p>
+
+        <button
+          @click="loadMessages"
+          class="mt-3 text-sm font-semibold text-red-200 underline"
+        >
+          Try again
+        </button>
+      </div>
+
+
+      <!-- LOADING -->
       <div
         v-if="loading"
-        class="text-gray-400"
+        class="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-10 text-center"
       >
-        Loading messages...
+        <div
+          class="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-slate-700 border-t-blue-500"
+        ></div>
+
+        <p class="mt-4 text-sm text-slate-400">
+          Loading messages...
+        </p>
       </div>
 
 
+      <!-- EMPTY -->
       <div
-        v-else-if="messages.length === 0"
-        class="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center text-gray-400"
+        v-else-if="!errorMessage && messages.length === 0"
+        class="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-12 text-center"
       >
-        No messages received yet.
+        <div
+          class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/10 text-2xl"
+        >
+          ✉
+        </div>
+
+        <h2 class="mt-5 text-xl font-semibold">
+          No messages yet
+        </h2>
+
+        <p class="mt-2 text-slate-400">
+          Messages submitted through your contact form will appear here.
+        </p>
       </div>
 
 
+      <!-- MESSAGES -->
       <div
         v-else
         class="space-y-5"
@@ -166,30 +311,70 @@ onMounted(() => {
         <div
           v-for="message in messages"
           :key="message.id"
-          class="bg-gray-900 border border-gray-800 rounded-xl p-6"
+          @click="markAsRead(message)"
+          class="group cursor-pointer rounded-2xl border bg-white/[0.03] p-6 transition duration-200 hover:bg-white/[0.05]"
+          :class="
+            message.is_read
+              ? 'border-white/[0.08]'
+              : 'border-blue-500/30 bg-blue-500/[0.04]'
+          "
         >
 
-          <div class="flex justify-between items-start gap-5">
+          <!-- TOP -->
+          <div
+            class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between"
+          >
 
-            <div>
+            <div class="min-w-0">
 
-              <h3 class="text-xl font-semibold">
-                {{ message.subject || "No Subject" }}
-              </h3>
+              <div class="flex flex-wrap items-center gap-3">
 
-              <p class="text-blue-400 mt-2">
-                {{ message.name }}
-              </p>
+                <h2
+                  class="break-words text-xl font-semibold text-white"
+                >
+                  {{ message.subject || "No Subject" }}
+                </h2>
 
-              <p class="text-gray-400 text-sm mt-1">
-                {{ message.email }}
-              </p>
+                <span
+                  v-if="!message.is_read"
+                  class="rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-400"
+                >
+                  Unread
+                </span>
+
+                <span
+                  v-else
+                  class="rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500"
+                >
+                  Read
+                </span>
+
+              </div>
+
+
+              <div class="mt-3 flex flex-col gap-1">
+
+                <p class="font-medium text-blue-400">
+                  {{ message.name }}
+                </p>
+
+                <a
+                  :href="`mailto:${message.email}`"
+                  @click.stop
+                  class="w-fit text-sm text-slate-400 transition hover:text-white"
+                >
+                  {{ message.email }}
+                </a>
+
+              </div>
 
             </div>
 
+
+            <!-- DELETE -->
             <button
-              @click="deleteMessage(message.id)"
-              class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm"
+              @click.stop="deleteMessage(message.id)"
+              class="shrink-0 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-400 transition hover:bg-red-500/20 hover:text-red-300"
             >
               Delete
             </button>
@@ -197,20 +382,37 @@ onMounted(() => {
           </div>
 
 
-          <div class="border-t border-gray-800 my-5"></div>
+          <!-- DIVIDER -->
+          <div
+            class="my-5 border-t border-white/[0.06]"
+          ></div>
 
 
-          <p class="text-gray-300 whitespace-pre-line">
-            {{ message.message }}
-          </p>
+          <!-- MESSAGE -->
+          <div>
+            <p
+              class="whitespace-pre-line break-words leading-7 text-slate-300"
+            >
+              {{ message.message }}
+            </p>
+          </div>
 
 
-          <p
+          <!-- DATE -->
+          <div
             v-if="message.created_at"
-            class="text-gray-500 text-sm mt-5"
+            class="mt-6 flex items-center justify-between gap-4"
           >
-            {{ message.created_at }}
-          </p>
+            <p class="text-xs text-slate-500">
+              {{ formatDate(message.created_at) }}
+            </p>
+
+            <p
+              class="text-xs text-slate-600"
+            >
+              ID #{{ message.id }}
+            </p>
+          </div>
 
         </div>
 

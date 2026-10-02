@@ -17,6 +17,7 @@ import AdminSkills from "../views/AdminSkills.vue";
 import AdminEducation from "../views/AdminEducation.vue";
 import AdminExperience from "../views/AdminExperience.vue";
 import AdminInterests from "../views/AdminInterests.vue";
+import AdminMessages from "../views/AdminMessages.vue";
 
 const router = createRouter({
   history: createWebHistory(),
@@ -30,6 +31,12 @@ const router = createRouter({
       path: "/",
       name: "Home",
       component: Home,
+    },
+
+    {
+      path: "/about",
+      name: "About",
+      component: () => import("../views/About.vue"),
     },
 
     {
@@ -61,11 +68,6 @@ const router = createRouter({
       name: "Interests",
       component: Interests,
     },
-    {
-  path: "/about",
-  name: "About",
-  component: () => import("../views/About.vue"),
-},
 
     {
       path: "/contact",
@@ -117,6 +119,12 @@ const router = createRouter({
       path: "/admin/interests",
       name: "AdminInterests",
       component: AdminInterests,
+    },
+
+    {
+      path: "/admin/messages",
+      name: "AdminMessages",
+      component: AdminMessages,
     },
   ],
 });
