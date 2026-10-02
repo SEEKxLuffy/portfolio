@@ -1,4 +1,5 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
+import { API_URL } from "../config";
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 
@@ -44,7 +45,7 @@ const saving = ref(false);
 const loadProjects = async () => {
   try {
     const response = await fetch(
-      "http://localhost:3000/api/projects"
+      `${API_URL}/api/projects`
     );
 
     if (!response.ok) {
@@ -91,8 +92,8 @@ const saveProject = async () => {
 
     const url =
       editingProjectId.value !== null
-        ? `http://localhost:3000/api/projects/${editingProjectId.value}`
-        : "http://localhost:3000/api/projects";
+        ? `${API_URL}/api/projects/${editingProjectId.value}`
+        : `${API_URL}/api/projects`;
 
     const response = await fetch(url, {
       method,
@@ -170,7 +171,7 @@ const deleteProject = async (id: number) => {
 
   try {
     const response = await fetch(
-      `http://localhost:3000/api/projects/${id}`,
+      `${API_URL}/api/projects/${id}`,
       {
         method: "DELETE",
       }
@@ -246,7 +247,7 @@ onMounted(() => {
           @click="goBack"
           class="text-gray-400 hover:text-white transition mb-5"
         >
-          ← Back to Dashboard
+          â† Back to Dashboard
         </button>
 
         <h1 class="text-3xl font-bold">
@@ -464,7 +465,7 @@ onMounted(() => {
                 rel="noopener noreferrer"
                 class="text-gray-300 hover:text-white text-sm"
               >
-                GitHub →
+                GitHub â†’
               </a>
 
 
@@ -475,7 +476,7 @@ onMounted(() => {
                 rel="noopener noreferrer"
                 class="text-blue-400 hover:text-blue-300 text-sm"
               >
-                Live Project →
+                Live Project â†’
               </a>
 
             </div>

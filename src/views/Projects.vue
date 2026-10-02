@@ -12,7 +12,7 @@ interface Project {
   live: string;
 }
 
-const API_URL = "http://localhost:3000";
+import { API_URL } from "../config";
 
 const projects = ref<Project[]>([]);
 const loading = ref(true);

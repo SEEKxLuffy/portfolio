@@ -1,4 +1,5 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
+import { API_URL } from "../config";
 import { ref, onMounted } from "vue";
 
 interface Experience {
@@ -16,7 +17,7 @@ const loading = ref(true);
 const fetchExperience = async () => {
   try {
     const response = await fetch(
-      "http://localhost:3000/api/experience"
+      `${API_URL}/api/experience`
     );
 
     if (!response.ok) {

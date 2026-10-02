@@ -1,4 +1,5 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
+import { API_URL } from "../config";
 import { ref, onMounted } from "vue";
 
 interface Interest {
@@ -12,7 +13,7 @@ const loading = ref(true);
 
 const fetchInterests = async () => {
   try {
-    const response = await fetch("http://localhost:3000/api/interests");
+    const response = await fetch(`${API_URL}/api/interests`);
 
     if (!response.ok) {
       throw new Error("Failed to fetch interests");

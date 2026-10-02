@@ -1,4 +1,5 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
+import { API_URL } from "../config";
 import { ref, onMounted } from "vue";
 
 interface Profile {
@@ -24,7 +25,7 @@ const errorMessage = ref("");
 
 const fetchProfile = async () => {
   try {
-    const response = await fetch("http://localhost:3000/api/profile");
+    const response = await fetch(`${API_URL}/api/profile`);
 
     if (!response.ok) {
       throw new Error("Failed to fetch profile");
@@ -58,7 +59,7 @@ const sendMessage = async () => {
   sending.value = true;
 
   try {
-    const response = await fetch("http://localhost:3000/api/messages", {
+    const response = await fetch(`${API_URL}/api/messages`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -157,7 +158,7 @@ onMounted(fetchProfile);
               <div
                 class="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/10 text-blue-400"
               >
-                ✦
+                âœ¦
               </div>
 
               <h2 class="text-2xl font-semibold">
@@ -218,7 +219,7 @@ onMounted(fetchProfile);
               <div
                 class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-blue-400 transition group-hover:border-blue-500/20 group-hover:bg-blue-500/10"
               >
-                ☎
+                â˜Ž
               </div>
 
               <div>
@@ -250,7 +251,7 @@ onMounted(fetchProfile);
               <div
                 class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-blue-400"
               >
-                ◎
+                â—Ž
               </div>
 
               <div>
@@ -285,7 +286,7 @@ onMounted(fetchProfile);
               rel="noopener noreferrer"
               class="rounded-xl border border-white/[0.08] bg-white/[0.03] px-5 py-3 text-sm font-medium text-slate-300 transition hover:border-blue-500/30 hover:bg-blue-500/10 hover:text-white"
             >
-              GitHub ↗
+              GitHub â†—
             </a>
 
             <a
@@ -295,7 +296,7 @@ onMounted(fetchProfile);
               rel="noopener noreferrer"
               class="rounded-xl border border-white/[0.08] bg-white/[0.03] px-5 py-3 text-sm font-medium text-slate-300 transition hover:border-blue-500/30 hover:bg-blue-500/10 hover:text-white"
             >
-              LinkedIn ↗
+              LinkedIn â†—
             </a>
 
           </div>
@@ -459,7 +460,7 @@ onMounted(fetchProfile);
                 v-if="!sending"
                 class="transition-transform duration-200 group-hover:translate-x-1"
               >
-                →
+                â†’
               </span>
             </button>
 

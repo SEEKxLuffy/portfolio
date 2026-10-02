@@ -1,4 +1,5 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
+import { API_URL } from "../config";
 import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 
@@ -32,7 +33,7 @@ const loadMessages = async () => {
 
   try {
     const response = await fetch(
-      "http://localhost:3000/api/messages"
+      `${API_URL}/api/messages`
     );
 
     if (!response.ok) {
@@ -67,7 +68,7 @@ const markAsRead = async (message: Message) => {
 
   try {
     const response = await fetch(
-      `http://localhost:3000/api/messages/${message.id}`,
+      `${API_URL}/api/messages/${message.id}`,
       {
         method: "PUT",
         headers: {
@@ -105,7 +106,7 @@ const deleteMessage = async (id: number) => {
 
   try {
     const response = await fetch(
-      `http://localhost:3000/api/messages/${id}`,
+      `${API_URL}/api/messages/${id}`,
       {
         method: "DELETE",
       }
@@ -173,7 +174,7 @@ onMounted(() => {
           @click="goBack"
           class="mb-6 inline-flex items-center gap-2 text-sm text-slate-400 transition hover:text-white"
         >
-          ← Back to Dashboard
+          â† Back to Dashboard
         </button>
 
         <div
@@ -201,7 +202,7 @@ onMounted(() => {
             @click="loadMessages"
             class="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:border-blue-500/30 hover:bg-blue-500/10 hover:text-white"
           >
-            ↻ Refresh
+            â†» Refresh
           </button>
         </div>
 
@@ -289,7 +290,7 @@ onMounted(() => {
         <div
           class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/10 text-2xl"
         >
-          ✉
+          âœ‰
         </div>
 
         <h2 class="mt-5 text-xl font-semibold">

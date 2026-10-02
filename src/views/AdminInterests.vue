@@ -1,4 +1,5 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
+import { API_URL } from "../config";
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 
@@ -28,7 +29,7 @@ const saving = ref(false);
 const loadInterests = async () => {
   try {
     const response = await fetch(
-      "http://localhost:3000/api/interests"
+      `${API_URL}/api/interests`
     );
 
     if (!response.ok) {
@@ -72,8 +73,8 @@ const saveInterest = async () => {
 
     const url =
       editingInterestId.value !== null
-        ? `http://localhost:3000/api/interests/${editingInterestId.value}`
-        : "http://localhost:3000/api/interests";
+        ? `${API_URL}/api/interests/${editingInterestId.value}`
+        : `${API_URL}/api/interests`;
 
     const response = await fetch(url, {
       method,
@@ -148,7 +149,7 @@ const deleteInterest = async (id: number) => {
 
   try {
     const response = await fetch(
-      `http://localhost:3000/api/interests/${id}`,
+      `${API_URL}/api/interests/${id}`,
       {
         method: "DELETE",
       }
@@ -219,7 +220,7 @@ onMounted(() => {
           @click="goBack"
           class="text-gray-400 hover:text-white transition mb-5"
         >
-          ← Back to Dashboard
+          â† Back to Dashboard
         </button>
 
         <h1 class="text-3xl font-bold">

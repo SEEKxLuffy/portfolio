@@ -5,7 +5,7 @@ import { useRouter } from "vue-router";
 
 const router = useRouter();
 
-const API_URL = "http://localhost:3000";
+import { API_URL } from "../config";
 
 interface Profile {
   id: number;

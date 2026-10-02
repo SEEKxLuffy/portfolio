@@ -13,7 +13,7 @@ interface Profile {
   image: string | null;
 }
 
-const API_URL = "http://localhost:3000";
+import { API_URL } from "../config";
 
 const profile = ref<Profile | null>(null);
 

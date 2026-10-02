@@ -1,4 +1,5 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
+import { API_URL } from "../config";
 import { ref, computed, onMounted } from "vue";
 
 interface Skill {
@@ -18,7 +19,7 @@ const fetchSkills = async () => {
 
   try {
     const response = await fetch(
-      "http://localhost:3000/api/skills"
+      `${API_URL}/api/skills`
     );
 
     if (!response.ok) {

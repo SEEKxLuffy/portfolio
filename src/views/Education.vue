@@ -1,5 +1,6 @@
-```vue
+﻿```vue
 <script setup lang="ts">
+import { API_URL } from "../config";
 import { ref, onMounted } from "vue";
 
 interface Education {
@@ -17,7 +18,7 @@ const loading = ref(true);
 
 const fetchEducation = async () => {
   try {
-    const response = await fetch("http://localhost:3000/api/education");
+    const response = await fetch(`${API_URL}/api/education`);
 
     if (!response.ok) {
       throw new Error("Failed to fetch education");

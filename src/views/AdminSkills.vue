@@ -1,4 +1,5 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
+import { API_URL } from "../config";
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 
@@ -45,7 +46,7 @@ const loadSkills = async () => {
 
   try {
     const response = await fetch(
-      "http://localhost:3000/api/skills"
+      `${API_URL}/api/skills`
     );
 
     if (!response.ok) {
@@ -87,8 +88,8 @@ const saveSkill = async () => {
 
   try {
     const url = isEditing
-      ? `http://localhost:3000/api/skills/${editingId.value}`
-      : "http://localhost:3000/api/skills";
+      ? `${API_URL}/api/skills/${editingId.value}`
+      : `${API_URL}/api/skills`;
 
     const method = isEditing ? "PUT" : "POST";
 
@@ -143,7 +144,7 @@ const deleteSkill = async (id: number) => {
 
   try {
     const response = await fetch(
-      `http://localhost:3000/api/skills/${id}`,
+      `${API_URL}/api/skills/${id}`,
       {
         method: "DELETE",
       }
@@ -216,7 +217,7 @@ onMounted(loadSkills);
           @click="goBack"
           class="inline-flex w-fit items-center gap-2 rounded-lg border border-white/[0.08] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:border-blue-500/40 hover:text-white"
         >
-          <span aria-hidden="true">←</span>
+          <span aria-hidden="true">â†</span>
           Back to Dashboard
         </button>
       </header>

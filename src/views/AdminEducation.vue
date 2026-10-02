@@ -1,6 +1,8 @@
+﻿```vue
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
+import { API_URL } from "../config";
 
 const router = useRouter();
 
@@ -34,9 +36,7 @@ const loadEducation = async () => {
   loading.value = true;
 
   try {
-    const response = await fetch(
-      "http://localhost:3000/api/education"
-    );
+    const response = await fetch(`${API_URL}/api/education`);
 
     if (!response.ok) {
       throw new Error("Failed to load education");
@@ -62,8 +62,8 @@ const saveEducation = async () => {
 
   try {
     const url = editingId.value
-      ? `http://localhost:3000/api/education/${editingId.value}`
-      : "http://localhost:3000/api/education";
+      ? `${API_URL}/api/education/${editingId.value}`
+      : `${API_URL}/api/education`;
 
     const method = editingId.value ? "PUT" : "POST";
 
@@ -115,7 +115,7 @@ const deleteEducation = async (id: number) => {
 
   try {
     const response = await fetch(
-      `http://localhost:3000/api/education/${id}`,
+      `${API_URL}/api/education/${id}`,
       {
         method: "DELETE",
       }
@@ -238,7 +238,13 @@ onMounted(loadEducation);
               :disabled="saving"
               class="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg"
             >
-              {{ saving ? "Saving..." : editingId ? "Update Education" : "Add Education" }}
+              {{
+                saving
+                  ? "Saving..."
+                  : editingId
+                    ? "Update Education"
+                    : "Add Education"
+              }}
             </button>
 
             <button
@@ -261,7 +267,10 @@ onMounted(loadEducation);
         {{ message }}
       </p>
 
-      <div v-if="loading" class="text-gray-400">
+      <div
+        v-if="loading"
+        class="text-gray-400"
+      >
         Loading education...
       </div>
 
@@ -319,3 +328,4 @@ onMounted(loadEducation);
     </div>
   </div>
 </template>
+```

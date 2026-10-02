@@ -38,7 +38,7 @@ const deletingImage = ref(false);
 const message = ref("");
 const errorMessage = ref("");
 
-const API_URL = "http://localhost:3000";
+import { API_URL } from "../config";
 
 const currentImage = computed(() => {
   if (imagePreview.value) {
