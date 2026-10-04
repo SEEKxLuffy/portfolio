@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { computed } from "vue";
+import { API_URL } from "../config";
+
 interface Profile {
   name: string;
   job_title: string;
@@ -7,11 +10,27 @@ interface Profile {
   location: string;
   github: string;
   linkedin: string;
+  image: string | null;
 }
 
-defineProps<{
+const props = defineProps<{
   profile: Profile;
 }>();
+
+const profileImage = computed(() => {
+  if (!props.profile.image) {
+    return null;
+  }
+
+  // If the backend already returns a complete URL
+  if (props.profile.image.startsWith("http")) {
+    return props.profile.image;
+  }
+
+  // Backend returns something like:
+  // /uploads/profile-1790853024815.jpeg
+  return `${API_URL}${props.profile.image}`;
+});
 
 const scrollToSection = (id: string) => {
   const element = document.getElementById(id);
@@ -53,6 +72,7 @@ const scrollToSection = (id: string) => {
           class="text-5xl font-black leading-tight text-white sm:text-6xl lg:text-7xl"
         >
           Hi, I'm
+
           <span class="block text-cyan-400">
             {{ profile.name || "Manish Tamang" }}
           </span>
@@ -62,9 +82,7 @@ const scrollToSection = (id: string) => {
           {{ profile.job_title || "Frontend Developer" }}
         </h2>
 
-        <p
-          class="mt-6 max-w-xl text-lg leading-8 text-slate-400"
-        >
+        <p class="mt-6 max-w-xl text-lg leading-8 text-slate-400">
           {{ profile.bio }}
         </p>
 
@@ -110,15 +128,31 @@ const scrollToSection = (id: string) => {
       <!-- Right -->
       <div class="flex justify-center lg:justify-end">
         <div class="relative">
+          <!-- Glow -->
           <div
-            class="absolute -inset-6 rounded-full bg-cyan-400/10 blur-3xl"
+            class="absolute -inset-8 rounded-full bg-cyan-400/10 blur-3xl"
           ></div>
 
+          <!-- Outer circle -->
           <div
-            class="relative flex h-72 w-72 items-center justify-center rounded-full border border-cyan-400/30 bg-slate-900 shadow-2xl shadow-cyan-500/10 sm:h-96 sm:w-96"
+            class="relative flex h-72 w-72 items-center justify-center rounded-full border border-cyan-400/30 bg-slate-900 p-3 shadow-2xl shadow-cyan-500/10 sm:h-96 sm:w-96"
           >
+            <!-- Profile Image -->
             <div
-              class="flex h-56 w-56 items-center justify-center rounded-full border border-slate-700 bg-slate-950 sm:h-72 sm:w-72"
+              v-if="profileImage"
+              class="h-full w-full overflow-hidden rounded-full border border-slate-700 bg-slate-950"
+            >
+              <img
+                :src="profileImage"
+                :alt="profile.name || 'Profile photo'"
+                class="h-full w-full object-cover"
+              />
+            </div>
+
+            <!-- Fallback -->
+            <div
+              v-else
+              class="flex h-full w-full items-center justify-center rounded-full border border-slate-700 bg-slate-950"
             >
               <span class="text-7xl font-black text-cyan-400 sm:text-8xl">
                 &lt;/&gt;
