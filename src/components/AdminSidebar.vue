@@ -38,7 +38,7 @@ const logout = () => {
 ```
 
 <template>
-  ```html
+  
 <aside
   :class="[
     'fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-gray-800 bg-gray-900 transition-transform duration-300 ease-in-out',
