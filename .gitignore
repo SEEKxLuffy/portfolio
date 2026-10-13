@@ -14,9 +14,14 @@ node_modules/
 dist/
 dist-ssr/
 
-# Environment variables
+# Environment variables and secrets
 .env
 .env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+**/*env copy*
 
 # Uploaded files
 backend/uploads/
