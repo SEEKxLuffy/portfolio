@@ -1,66 +1,52 @@
 
+```vue
 <script setup lang="ts">
 import { useRouter } from "vue-router";
 
 const router = useRouter();
 
+const props = defineProps<{
+  mobileOpen: boolean;
+}>();
+
+const emit = defineEmits<{
+  close: [];
+}>();
+
 const menuItems = [
-  {
-    name: "Dashboard",
-    path: "/admin",
-    icon: "dashboard",
-  },
-  {
-    name: "Profile",
-    path: "/admin/profile",
-    icon: "profile",
-  },
-  {
-    name: "Skills",
-    path: "/admin/skills",
-    icon: "skills",
-  },
-  {
-    name: "Education",
-    path: "/admin/education",
-    icon: "education",
-  },
-  {
-    name: "Experience",
-    path: "/admin/experience",
-    icon: "experience",
-  },
-  {
-    name: "Projects",
-    path: "/admin/projects",
-    icon: "projects",
-  },
-  {
-    name: "Interests",
-    path: "/admin/interests",
-    icon: "interests",
-  },
-  {
-    name: "Messages",
-    path: "/admin/messages",
-    icon: "messages",
-  },
+  { name: "Dashboard", path: "/admin", icon: "dashboard" },
+  { name: "Profile", path: "/admin/profile", icon: "profile" },
+  { name: "Skills", path: "/admin/skills", icon: "skills" },
+  { name: "Education", path: "/admin/education", icon: "education" },
+  { name: "Experience", path: "/admin/experience", icon: "experience" },
+  { name: "Projects", path: "/admin/projects", icon: "projects" },
+  { name: "Interests", path: "/admin/interests", icon: "interests" },
+  { name: "Messages", path: "/admin/messages", icon: "messages" },
 ];
 
 const navigate = (path: string) => {
   router.push(path);
+  emit("close");
 };
 
 const logout = () => {
   localStorage.removeItem("adminLoggedIn");
   router.push("/admin/login");
+  emit("close");
 };
 </script>
+```
 
 <template>
-  <aside
-    class="fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-gray-800 bg-gray-900"
-  >
+  ```html
+<aside
+  :class="[
+    'fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-gray-800 bg-gray-900 transition-transform duration-300 ease-in-out',
+    props.mobileOpen ? 'translate-x-0' : '-translate-x-full',
+    'md:translate-x-0'
+  ]"
+>
+```
     <!-- BRAND -->
     <div class="border-b border-gray-800 px-6 py-6">
       <router-link
