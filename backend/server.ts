@@ -51,31 +51,10 @@ app.use(express.urlencoded({ extended: true }));
 // ==================================================
 // IMAGE UPLOAD
 // ==================================================
-
-const uploadDir = path.join(process.cwd(), "uploads");
-
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, {
-    recursive: true,
-  });
-}
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, uploadDir);
-  },
-
-  filename: (_req, file, cb) => {
-    const extension = path.extname(file.originalname);
-
-    const filename = `profile-${Date.now()}${extension}`;
-
-    cb(null, filename);
-  },
-});
+import multer from "multer";
 
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
 
   limits: {
     fileSize: 5 * 1024 * 1024,
@@ -100,7 +79,12 @@ const upload = multer({
     }
   },
 });
+import { createClient } from "@supabase/supabase-js";
 
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 // Serve uploaded images
 app.use(
   "/uploads",
@@ -111,11 +95,40 @@ app.use(
 // TEST ROUTE
 // ==================================================
 
-app.get("/", (_req, res) => {
-  res.json({
-    message: "Portfolio backend is running",
+const file = req.file;
+
+if (!file) {
+  return res.status(400).json({
+    message: "No image uploaded",
   });
-});
+}
+
+const extension = path.extname(file.originalname);
+const filename = `profile-${Date.now()}${extension}`;
+
+const { error } = await supabase.storage
+  .from("portfolio-images")
+  .upload(filename, file.buffer, {
+    contentType: file.mimetype,
+    upsert: false,
+  });
+
+if (error) {
+  console.error("Supabase upload error:", error.message);
+
+  return res.status(500).json({
+    message: "Image upload failed",
+  });
+}
+
+const { data } = supabase.storage
+  .from("portfolio-images")
+  .getPublicUrl(filename);
+
+const imageUrl = data.publicUrl;
+
+// Save imageUrl to the appropriate profile record in your database.
+// Return imageUrl to the frontend after the database update succeeds.
 
 // ==================================================
 // PROJECTS
